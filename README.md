@@ -2,12 +2,12 @@
 this is a alpha. a minimum viable product. expect alotta bugs and missing features.
 dm eg.o on discord for things
 
-minecraft: new nintendo 3ds edition, playing on a real java server. over the internet. with your 3ds skin.
+mc3ds 
 
-it's two plugins that talk to each other:
+the two plugins
 
-- **tonic3ds** — a luma 3gx plugin that runs inside the game on the 3ds. the game only knows how to play over local wireless, so tonic fakes that whole service and tunnels the traffic out over your normal wifi instead. from the game's point of view there's a friend hosting a world nearby. that "friend" is your server
-- **tonicjava** — a paper plugin on the server. every 3ds that connects becomes a real player (through floodgate) with its own name and its own skin. other players see it walk around, break and place blocks, pick stuff up. multiple 3ds at once is fine, they see each other too (hopefully)
+- **tonic3ds** — luma 3gx plugin, 
+- **tonicjava** — a paper plugin on the server. connections become players thru floodgate
 
 
 
@@ -61,15 +61,6 @@ the 3ds only sends the *name* of its built in skin. the actual textures live on 
 2. `python3 tools/3dst2png.py <that folder> plugins/TonicJava/skins` — converts all 600ish skins to pngs and writes an index. it also rebuilds the ones that use their own 3ds-only model so they fit java's model
 3. put a mineskin api key in config.yml (`mineskin-key`). java clients only accept skins signed by mojang, and mineskin does the signing. each skin is signed once, the first time someone wears it, and cached forever after
 
-## how it actually works
-
-short version. the long version is [FINDINGS.md](FINDINGS.md).
-
-- the game talks to the 3ds's local wireless service (nwm::UDS) through about 155 inlined syscall sites. tonic3ds patches every one of them with a small veneer, works out at runtime which handle is the UDS one, and answers the UDS commands itself: a scan gets a beacon back, a connect gets a connect-ok, and packets go over a tcp tunnel instead of the radio
-- it also neutralises the one ndm call that would switch the radio to local mode and drop wifi
-- tonicjava speaks the game's flavour of mcpe (raknet, zlib batches, an mcpe 0.x/1.0 era dialect) to the tunnel. for every 3ds it logs a java client into the server through floodgate's handshake, and that bot's view of the world is what the 3ds sees
-- the 3ds's moves, digs and places are done server side (teleport, breakNaturally, setType). a real player is subject to spawn protection and movement checks, and being puppeted from a 3ds sets all of those off, so the plugin just does it itself
-- drops, other players, and other 3ds players get mirrored back to the 3ds
 
 ## stuff that doesn't work (yet)
 
