@@ -38,7 +38,7 @@ on the server side
 
 **on the 3ds**
 1. put [tonic.3gx](https://github.com/yorkedegg/tonic/releases/latest/download/tonic.3gx) at `sd:/luma/plugins/00040000001B8700/tonic.3gx` (it's also in `plugin/tonic/` if you build it yourself)
-2. make a file `sd:/tonic.cfg` with one line in it: `1.2.3.4:27953` — your server's ip and the tunnel port. it has to be an ip, not a hostname (no dns yet)
+2. make a file `sd:/tonic.cfg` with one line in it: `1.2.3.4:27953` — your server's public ip and the tunnel port. it has to be an ip, not a hostname (no dns yet). no file = tonic does nothing and says so in `sd:/tonic.log`
 3. connect to wifi, launch the game, hit play → the join list shows a world called "Tonic". join it like you'd join a friend
 
 **on the server**
@@ -49,9 +49,10 @@ on the server side
 **on azahar (the emulator), instead of a real 3ds**
 
 the same `tonic.3gx` works in stock azahar — no custom emulator build, no shim. azahar has luma's plugin loader built in, it's just off:
-1. with azahar closed, in `~/Library/Application Support/Azahar/config/qt-config.ini` (or the equivalent on your os) set `plugin_loader=true` **and** `plugin_loader\default=false` — if the `\default` line stays true, azahar ignores the value and keeps the loader off
-2. put `tonic.3gx` at `sdmc/luma/plugins/00040000001B8700/tonic.3gx` and `tonic.cfg` at the sdmc root, same as the console
-3. boot the game and join "Tonic". `sdmc/tonic.log` tells you what the plugin's doing — no ftp needed
+1. install the **v9.12.0 update cia** in azahar as well (file → install cia). the base game on its own is v0.1.0, which is a different binary — tonic will refuse to touch it and tell you why in `sdmc/tonic.log`
+2. with azahar closed, in `~/Library/Application Support/Azahar/config/qt-config.ini` (or the equivalent on your os) set `plugin_loader=true` **and** `plugin_loader\default=false` — if the `\default` line stays true, azahar ignores the value and keeps the loader off
+3. put `tonic.3gx` at `sdmc/luma/plugins/00040000001B8700/tonic.3gx` and `tonic.cfg` at the sdmc root, same as the console. the cfg isn't optional
+4. boot the game and join "Tonic". `sdmc/tonic.log` tells you what the plugin's doing — no ftp needed
 
 **skins (optional)**
 

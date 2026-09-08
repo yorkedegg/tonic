@@ -18,16 +18,18 @@
 
 // Where the bridge is. The console reaches it over ordinary Wi-Fi — UDS is replaced wholesale
 // rather than tunnelled, so the radio is never in local-wireless mode.
-#define BRIDGE_HOST "10.161.209.234"   // fallback when sdmc:/tonic.cfg is absent
-#define BRIDGE_PORT 7777
+#define BRIDGE_HOST ""                 // no default: without sdmc:/tonic.cfg tonic stays inert
+#define BRIDGE_PORT 0
 
-// Runtime target. Overridden by sdmc:/tonic.cfg, a one-line text file "host:port" (e.g.
-// "203.0.113.5:7777" or "myserver.example.com:7777" once DNS is handled), so the console can be
-// pointed at ANY server without rebuilding the plugin. Missing/unparseable file = the defaults.
+// Runtime target, from sdmc:/tonic.cfg: a one-line text file "ip:port" (e.g. "203.0.113.5:27953";
+// hostnames once DNS is handled), so the console can be pointed at ANY server without rebuilding
+// the plugin. Missing/unparseable file = tonic logs how to make one and does NOT hook the game
+// (a friend's first run used to fall back to a private LAN address and then patch anyway).
 static char gHost[64] = BRIDGE_HOST;
 static u16  gPort     = BRIDGE_PORT;
 
 static bool gUnderAzahar;
+static bool gHaveConfig;        // tonic.cfg read OK; nothing is hooked without it
 #define PLG_STACK_SIZE 0x4000
 static u8 stack[PLG_STACK_SIZE] __attribute__((aligned(8)));
 static Handle thread;
@@ -131,8 +133,14 @@ static void probeBridge(void) {
     }
 
     char line[160];
-    int cfg = readBridgeConfig();
-    sprintf(line, "tonic: bridge target %s:%u (%s)\n", gHost, (unsigned)gPort, cfg ? "from tonic.cfg" : "built-in default");
+    if (!readBridgeConfig()) {
+        logLine("tonic: no sdmc:/tonic.cfg - make one with a single line, your server's ip:port\n");
+        logLine("tonic:   e.g. 203.0.113.5:27953   (an ip, not a hostname). doing nothing this launch.\n");
+        socExit();
+        return;
+    }
+    gHaveConfig = true;
+    sprintf(line, "tonic: bridge target %s:%u (from tonic.cfg)\n", gHost, (unsigned)gPort);
     logLine(line);
     if (!tunnelConnect(gHost, gPort)) {
         logLine("tonic: could not reach the bridge\n");
@@ -177,8 +185,10 @@ static void ThreadMain(void *arg) {
     // be populated yet, and a scan then finds nothing without ever faulting — which is what the
     // first attempt reported.
     svcSleepThread(2000ULL * 1000 * 1000);
-    hookInstall();
-    {
+    if (!gHaveConfig) {
+        logLine("tonic: no config, so no hooks - the game runs untouched\n");
+    } else {
+        hookInstall();
         static char st[1024];
         hookStatus(st, sizeof(st));   // includes stage + veneer address even after a partial run
         logLine(st);

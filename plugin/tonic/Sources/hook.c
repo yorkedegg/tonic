@@ -338,6 +338,29 @@ void hookInstall(void) {
     // The official svcFlushProcessDataCache (what CTRPF uses for every code patch) does the same
     // work inside the process's own context; the I-cache is invalidated wholesale, exactly as
     // Rosalina does after patching a game (svcInvalidateEntireInstructionCache, no MVAs at all).
+    // Refuse to patch a binary this table was not made for. Every site must hold the svc 0x32 the
+    // patch replaces (the table is from the USA v9.12.0 .code); on any other region or update the
+    // addresses land on unrelated instructions and the game dies the moment one runs. A friend's
+    // azahar with only the base v0.1.0 .cci and no update installed was exactly this.
+    {
+        u32 bad = 0, firstBad = 0;
+        for (u32 s = 0; s < NSITES; s++) {
+            if (*(volatile u32 *)SITES[s] != 0xEF000032u) { if (!bad) firstBad = SITES[s]; bad++; }
+        }
+        if (bad) {
+            char line[160];
+            sprintf(line, "tonic: WRONG GAME BINARY - %lu/%lu hook sites are not svc 0x32 (first bad 0x%08lX)\n",
+                    (unsigned long)bad, (unsigned long)NSITES, (unsigned long)firstBad);
+            logLine(line);
+            sprintf(line, "tonic:   text starts %08lX %08lX %08lX %08lX. tonic needs the USA copy on the v9.12.0 update\n",
+                    (unsigned long)firstWords[0], (unsigned long)firstWords[1],
+                    (unsigned long)firstWords[2], (unsigned long)firstWords[3]);
+            logLine(line);
+            logLine("tonic:   (on azahar: install the update cia too). not patching, the game runs untouched.\n");
+            hookStage = 9;
+            return;
+        }
+    }
     veneerBase = (u32)veneers;
     hookStage = 2;
 
