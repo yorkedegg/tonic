@@ -381,6 +381,25 @@ public final class SpawnProtocol implements RakNetSession.Handler {
         session.sendReliable(McpeBatch.build(Mcpe.setTime(ticks)));
     }
 
+    private static final int AIR_MAX = 400;      // the value the captured player metadata carries
+    private int lastAirSent = -1;
+
+    /**
+     * Bubbles. The 3DS drains the air bar locally while the head is under water, but it only
+     * refills when the host says so — and we never did, so the bubbles stayed up for good. Watch
+     * the block at the player's EYE (MovePlayer carries the eye, not the feet) in the world we
+     * served, and push a full bar once each time they surface. Underwater we stay quiet and let
+     * the client drain, so drowning still works.
+     */
+    private void refillAir(RakNetSession session, int entityId, float x, float eyeY, float z) {
+        int at = world.blockAt((int) Math.floor(x), (int) Math.floor(eyeY), (int) Math.floor(z));
+        if (at == 8 || at == 9) { lastAirSent = -1; return; }   // still under: the client is draining it
+        if (lastAirSent == AIR_MAX) return;                     // already told them, once is enough
+        lastAirSent = AIR_MAX;
+        session.sendReliable(McpeBatch.build(Mc3dsEntity.airSupply(entityId, AIR_MAX)));
+        log.info("surfaced -> air refilled for entity " + entityId);
+    }
+
     private void handleWorldActions(RakNetSession session, byte[] payload) {
         if (!worldActions && javaLink == null) return;  // live/plugin mode always handles 3DS actions
         for (byte[] p : McpeBatch.inflate(payload)) {
@@ -516,6 +535,7 @@ public final class SpawnProtocol implements RakNetSession.Handler {
                     // MovePlayer: 13 | eid | f32 x,y,z | f32 pitch,yaw,headYaw | 3 B.
                     // Verified against live packets — pitch stays within +-90 and yaw and headYaw
                     // are always equal.
+                    refillAir(session, eid[0], x, y, z);
                     lastPitch = f32(p, eid[1] + 12);
                     lastYaw = f32(p, eid[1] + 16);
                     lastPosX = x; lastPosY = y; lastPosZ = z; lastPosT = now;
@@ -1009,7 +1029,7 @@ public final class SpawnProtocol implements RakNetSession.Handler {
             new java.util.concurrent.LinkedBlockingQueue<>();
     /** Chunks around the PLAYER to keep loaded; 4 => a 9x9 area that travels with them. */
     private static final int STREAM_RADIUS =
-            Integer.parseInt(System.getenv().getOrDefault("MC3DS_STREAM_RADIUS", "4"));
+            Integer.parseInt(System.getenv().getOrDefault("MC3DS_STREAM_RADIUS", "6"));
     /**
      * How far past the radius a chunk must fall before we forget having sent it. Without the
      * margin, a player pacing across a chunk border would make the boundary chunks drop and

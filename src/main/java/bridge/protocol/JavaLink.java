@@ -212,6 +212,16 @@ public final class JavaLink {
             Integer.parseInt(System.getenv().getOrDefault("MC3DS_SPAWN_RADIUS", "2"));
 
 
+    /** A packet fixture from resources, or null if it is missing. */
+    private static byte[] resource(String name) {
+        try (java.io.InputStream in = JavaLink.class.getResourceAsStream("/" + name)) {
+            return in == null ? null : in.readAllBytes();
+        } catch (Exception e) {
+            log.warning("could not read " + name + ": " + e);
+            return null;
+        }
+    }
+
     public static byte[] buildSpawn(byte[] fixture, JavaClient jc, int originX, int originZ) {
         // Where the player goes on the 3DS: the bot's column, with the bot's chunk becoming 3DS
         // chunk (0,0). The height comes from the terrain we are about to send, NOT from the bot's
@@ -264,6 +274,12 @@ public final class JavaLink {
             }
         }
         if (n == 0) return null;
+        // Without CraftingData the 3DS has no recipes at all — you can hold the ingredients and the
+        // grid stays empty. The default fixture is StartGame-only, so add the captured table: it is
+        // static recipe data (verified to carry none of the capture's names or uuids), so unlike the
+        // rest of that capture it is safe to replay to any player.
+        byte[] recipes = resource("crafting.bin");
+        if (recipes != null) { out.add(recipes); log.info("added CraftingData (" + recipes.length + " B)"); }
         log.info("built spawn from " + n + " live Java chunks");
         return McpeBatch.build(out.toArray(new byte[0][]));
     }

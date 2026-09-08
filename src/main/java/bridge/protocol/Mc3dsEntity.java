@@ -108,8 +108,11 @@ public final class Mc3dsEntity {
     private static byte[] retagged(byte[] name) {
         int[] at = {0};
         ByteArrayOutputStream o = new ByteArrayOutputStream();
+        // Step over the capture's held item and write an empty hand instead. Copying it verbatim
+        // put whatever the captured host happened to be holding into EVERY player's hand — which
+        // on the 3DS showed up as everyone permanently holding stone.
         skipStack(TAIL, at);
-        o.writeBytes(java.util.Arrays.copyOfRange(TAIL, 0, at[0]));   // held item, unchanged
+        heldNothing(o);
         int count = (int) varlongAt(TAIL, at);
         writeVarint(o, count);
         for (int i = 0; i < count; i++) {
@@ -233,6 +236,24 @@ public final class Mc3dsEntity {
     /** An empty held-item stack, in the shape ContainerSetContent established. */
     private static void heldNothing(ByteArrayOutputStream o) {
         writeVarint(o, 0);
+    }
+
+    /**
+     * SetEntityData carrying only the air supply. Decoded from the captured 37-entry player
+     * metadata blob, which parses cleanly as (key varint, type varint, value) with key 7 = a short
+     * of 400 — full bubbles. The 3DS drains the bar itself underwater but waits to be told when it
+     * refills, so without this the bubbles stay on screen after surfacing.
+     */
+    public static byte[] airSupply(int entityId, int air) {
+        ByteArrayOutputStream o = new ByteArrayOutputStream();
+        o.write(0x27);
+        writeVarint(o, entityId);
+        writeVarint(o, 1);            // one metadata entry
+        writeVarint(o, 7);            // key 7 = air
+        writeVarint(o, 1);            // type 1 = short
+        o.write(air & 0xFF);
+        o.write((air >>> 8) & 0xFF);
+        return o.toByteArray();
     }
 
     /** Minecraft's byte angle: a full turn is 256, not 360. */
