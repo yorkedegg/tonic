@@ -27,12 +27,23 @@ static u32 nInstalled;
 static u32 firstWords[4];
 u32 veneerBase;
 u32 flushRes[2];
-#define MAXUH 8
+#define MAXUH 32
 static u32 udsHandles[MAXUH];                       // the game opens more than one nwm::UDS session
-static u32 nUdsHandles;
+static u32 nUdsHandles, udsNext;                    // a ring: see addUdsHandle
 static u32 udsHandle;                               // most-recent, for logging only
 static int isUdsHandle(u32 h) { for (u32 i = 0; i < nUdsHandles; i++) if (udsHandles[i] == h) return 1; return 0; }
-static void addUdsHandle(u32 h) { if (!isUdsHandle(h)) { if (nUdsHandles < MAXUH) udsHandles[nUdsHandles++] = h; udsHandle = h; } }
+// Every join opens two fresh nwm::UDS sessions. The old fixed set of 8 silently DROPPED the ninth
+// handle, so from the fifth join in one boot (or the first rejoin after a tunnel reset) every UDS
+// command on that session fell through to the real, never-initialised service: the
+// pc=0x0011FF0C / far=0x1423 crash, back again. Now a ring that recycles the OLDEST entry. Stale
+// values are harmless: the kernel never reuses a handle value (the high bits are a generation
+// counter), so a recycled slot can only ever have matched a session that is already gone.
+static void addUdsHandle(u32 h) {
+    if (isUdsHandle(h)) return;
+    udsHandles[udsNext] = h; udsNext = (udsNext + 1) % MAXUH;
+    if (nUdsHandles < MAXUH) nUdsHandles++;
+    udsHandle = h;
+}
 static u32 answerMask = 0x003E;                    // +bit5 = answer InitializeWithVersion (keep Wi-Fi up)
 static volatile u32 connected;                     // set once we've answered ConnectToNetwork
 static u16 myNodeId = 2;
@@ -62,6 +73,18 @@ static volatile u32 gcsCount;                       // GetConnectionStatus is po
 // {r0..r12,lr} the veneer pushed (saved[0] = the value r0 held at the site = the session handle).
 // Returns 1 to have the veneer SKIP the real svc — in that case we have already forged the reply
 // into the TLS command buffer and the output buffer, and set saved[0]=0 (transport success).
+// The tunnel died under a live session (server restart, network drop: send() -> ECONNRESET).
+// Stop claiming to be connected: the next GetConnectionStatus reports NotConnected and the
+// status event fires, so the game leaves cleanly ("connection lost") instead of spinning until
+// RakNet gives up and then churning fresh sessions. The next ConnectToNetwork reconnects.
+static void noteTunnelDead(void) {
+    if (connected && !tunnelActive()) {
+        connected = 0;
+        if (gConnEvent) svcSignalEvent(gConnEvent);
+        logLine("tonic: tunnel died under a live session -> reporting NotConnected\n");
+    }
+}
+
 u32 udsAnswer(u32 *saved, u32 site) {
     u32 handle = saved[0];
     u32 *cmd = getThreadCommandBuffer();
@@ -93,6 +116,7 @@ u32 udsAnswer(u32 *saved, u32 site) {
     if (cmdid == 0x0014 || cmdid == 0x0017) { /* too high-rate to log; counted in the summary */ }
     else if (cmdid == 0x000B) {
         gcsCount++;
+        noteTunnelDead();
         if (gConnEvent) {                           // we own the session: never touch real nwm
             cmd[0] = 0x000B0340u;                   // reply: cmd 0x0B, 13 normal, 0 translate
             cmd[1] = 0;                             // ResultSuccess
@@ -190,6 +214,7 @@ u32 udsAnswer(u32 *saved, u32 site) {
     // 3 normal params: bind_node_id, max_out_aligned (<<2, capped 0x172), max_out_size. Output goes
     // to the game's registered static buffer (id 0). Reply: result, size, src_node, static buffer.
     if ((answerMask & 0x0010u) && cmdid == 0x0014) {
+        noteTunnelDead();
         u32 maxAligned = cmd[2], maxSize = cmd[3];
         u32 buffSize = (maxAligned < 0x172 ? maxAligned : 0x172) << 2;
         u32 cap = buffSize < maxSize ? buffSize : maxSize;
@@ -211,6 +236,7 @@ u32 udsAnswer(u32 *saved, u32 site) {
     // Layout (from the IPC header 6 normal + 2 translate): cmd[2]=dest, cmd[3]=channel, cmd[5]=size,
     // cmd[6]=flags, cmd[7]=in-buffer descriptor, cmd[8]=in-buffer VA. Reply: just success.
     if ((answerMask & 0x0010u) && cmdid == 0x0017) {
+        noteTunnelDead();
         u8 ch = (u8)cmd[3]; u32 dsize = cmd[5], dataVA = cmd[8];
         if (dataVA && dsize && dsize <= 1500) {
             static u8 tx[1600];
