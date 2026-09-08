@@ -1,0 +1,26 @@
+Author: mc3ds-bridge
+
+Version:
+    Major: 0
+    Minor: 1
+    Revision: 0
+
+# Minecraft: New Nintendo 3DS Edition. Full title id 00040000001B8700 — note the low half also
+# appears in the UDS wlan_comm_id (0x001B8710) the bridge already hardcodes.
+Targets:
+    - 0x001B8700
+
+Title: Tonic3DS
+
+Summary: Console side of Tonic - bridges MC3DS to a modern Java server (pairs with TonicJava)
+
+Description: |
+  Step 1 of running the MC3DS bridge on real hardware. Writes to sdmc:/tonic.log on load and
+  every ten seconds after, and does nothing else. Confirms the plugin loads under this title, runs
+  code, does I/O, and stays alive — all of which the UDS hook depends on.
+
+Compatibility: Console
+
+MemorySize: 5MiB
+
+UsePrivateMemory: true
