@@ -1,0 +1,58 @@
+# Gradle / build output
+build/
+.gradle/
+
+# Java
+*.class
+
+# macOS
+.DS_Store
+
+# Scratch
+*.tmp
+
+# M2 runtime (downloaded jars + generated server/proxy data; see m2/README.md to recreate)
+m2/server/*.jar
+m2/server/world*/
+m2/server/logs/
+m2/server/cache/
+m2/server/libraries/
+m2/server/versions/
+m2/server/plugins/
+m2/server/*.json
+m2/server/*.log
+m2/viaproxy/*.jar
+m2/viaproxy/*.log
+m2/viaproxy/logs/
+m2/viaproxy/ViaLoader/
+m2/viaproxy/plugins/
+ghidra_12.1.3_PUBLIC/
+
+# Generated spawn fixtures — derived from spawn_realjoin.bin, rebuild with:
+#   python3 tools/build_spawns.py
+src/main/resources/sp_*.bin
+src/main/resources/pkt*.bin
+src/main/resources/spawn_idswap.bin
+src/main/resources/spawn_fullradius.bin
+src/main/resources/fullradius.bin
+src/main/resources/grid_plus_entities.bin
+plugin/composer/build/
+plugin/composer/*.elf
+plugin/blank/
+plugin/3gxtool/
+plugin/mc3ds-shim/build/
+plugin/mc3ds-shim/*.elf
+plugin/composer/
+
+# not for the public repo: raw protocol captures (62MB, and they carry real player names / console ids)
+captures/
+# console plugin build outputs. tonic.3gx stays tracked on purpose — it's the thing you copy to the sd card
+plugin/tonic/build/
+plugin/tonic/*.elf
+plugin/bin/
+*.bak
+*.bak-*
+m2/viaproxy/viabedrock/
+
+# the one generated fixture the plugin actually loads at runtime, so a fresh clone builds a working jar
+!src/main/resources/sp_java.bin

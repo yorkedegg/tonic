@@ -1,0 +1,7 @@
+// Auto-provisions a JDK 21 toolchain (the machine only has a JRE): Gradle downloads a matching JDK
+// on first build instead of failing with "Cannot find a Java installation ... languageVersion=21".
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'mc3ds-bridge'

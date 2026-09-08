@@ -1,0 +1,92 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'bridge'
+version = '0.1.0-M1'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+application {
+    // Bridge main loop: listens for the Azahar/3GX shim on the tunnel port.
+    mainClass = 'bridge.Bridge'
+}
+
+repositories {
+    mavenCentral()
+}
+
+// M1 (fake host) is intentionally dependency-free: the RakNet v8 transport and the
+// MC3DS packet codec are hand-rolled over the TCP tunnel (M0 confirmed RakNet v8 /
+// MTU 0x5d4 / no encryption, so a modern RakNet lib would only fight us on versions).
+// M2 (the Java leg) will add MCProtocolLib + ViaProxy here.
+dependencies {}
+
+// Convenience: `gradle frameSelfTest` runs the dependency-free tunnel codec check.
+tasks.register('frameSelfTest', JavaExec) {
+    group = 'verification'
+    description = 'Round-trips a tunnel Frame through the codec (no JUnit needed).'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'bridge.tunnel.FrameSelfTest'
+}
+
+// Validates the RakNet codec against real bytes captured in M0.
+tasks.register('raknetSelfTest', JavaExec) {
+    group = 'verification'
+    description = 'Decodes real MC3DS RakNet datagrams and round-trips the encoder.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'bridge.transport.RakNetCodecSelfTest'
+}
+
+// Validates the RakNet server: handshake builders vs capture, fragmentation, inbound flow.
+tasks.register('raknetSessionSelfTest', JavaExec) {
+    group = 'verification'
+    description = 'Exercises the RakNet server state machine against captured handshake bytes.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'bridge.transport.RakNetSessionSelfTest'
+}
+
+// Validates the MCPE batch codec + the captured spawn batch replay.
+tasks.register('spawnReplaySelfTest', JavaExec) {
+    group = 'verification'
+    description = 'Round-trips the 0xFE batch codec and inflates the captured spawn batch.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'bridge.protocol.SpawnReplaySelfTest'
+}
+
+// Runs every self-test.
+tasks.register('selfTest') {
+    group = 'verification'
+    description = 'Runs all bridge self-tests.'
+    dependsOn 'frameSelfTest', 'raknetSelfTest', 'raknetSessionSelfTest', 'spawnReplaySelfTest'
+}
+
+// ---- Paper/Spigot server-plugin leg (separate source set so the core stays dependency-free) ----
+repositories {
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+sourceSets {
+    paper {
+        // Convention already maps this set to src/paper/java + src/paper/resources; declaring the
+        // dirs again registered every resource twice (duplicate plugin.yml at processPaperResources).
+        compileClasspath += sourceSets.main.output
+    }
+}
+dependencies {
+    paperCompileOnly 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
+}
+// Fat plugin jar: core classes + paper leg + plugin.yml (paper-api is provided by the server).
+tasks.register('paperJar', Jar) {
+    group = 'build'
+    description = 'Builds the MC3DS Paper/Spigot plugin jar (drop in the server plugins/ folder).'
+    archiveBaseName = 'TonicJava'
+    archiveClassifier = ''
+    from sourceSets.main.output
+    from sourceSets.paper.output
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
