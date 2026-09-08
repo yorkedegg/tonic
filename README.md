@@ -7,9 +7,9 @@ minecraft: new nintendo 3ds edition, playing on a real java server. over the int
 it's two plugins that talk to each other:
 
 - **tonic3ds** — a luma 3gx plugin that runs inside the game on the 3ds. the game only knows how to play over local wireless, so tonic fakes that whole service and tunnels the traffic out over your normal wifi instead. from the game's point of view there's a friend hosting a world nearby. that "friend" is your server
-- **tonicjava** — a paper plugin on the server. every 3ds that connects becomes a real player (through floodgate) with its own name and its own skin. other players see it walk around, break and place blocks, pick stuff up. multiple 3ds at once is fine, they see each other too
+- **tonicjava** — a paper plugin on the server. every 3ds that connects becomes a real player (through floodgate) with its own name and its own skin. other players see it walk around, break and place blocks, pick stuff up. multiple 3ds at once is fine, they see each other too (hopefully)
 
-no bot accounts, no proxy in between, no pc in the middle. the 3ds talks straight to the server.
+
 
 ## download
 
@@ -25,7 +25,7 @@ details on both below.
 on the console side
 - a new 3ds / new 2ds with luma3ds and the plugin loader turned on (rosalina menu → plugin loader)
 - minecraft: new nintendo 3ds edition, **usa version, fully updated (the v9.12.0 update)**. tonic patches the game's code at fixed addresses that were worked out for exactly that binary. other regions or older updates will just crash at launch. most us copies are on the last update since the eshop closed, so this is usually fine
-- wifi. the 3ds has one radio and "local play" normally kills your internet. tonic stops that from happening
+- wifi. the 3ds has one radio and "local play" normally kills your internet. tonic stops that (hopefully)
 
 on the server side
 - paper 1.21.x
@@ -66,7 +66,6 @@ short version. the long version is [FINDINGS.md](FINDINGS.md).
 ## stuff that doesn't work (yet)
 
 - only the usa v9.12.0 binary, see above
-- `tonic.cfg` needs an ip, no dns
 - two 3ds with the same player name can't both be on (the second one kicks the first)
 - no mobs on the 3ds, only players and drops
 - a few 3ds skins have extra bits on their own model (mario's nose, r2d2...). java only has the one model so those bits are lost, and the fully non-humanoid ones get transparent parts instead of garbage
