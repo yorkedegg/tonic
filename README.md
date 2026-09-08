@@ -9,6 +9,15 @@ it's two plugins that talk to each other:
 
 no bot accounts, no proxy in between, no pc in the middle. the 3ds talks straight to the server.
 
+## download
+
+two files, from the [latest release](https://github.com/yorkedegg/tonic/releases/latest):
+
+- [tonic.3gx](https://github.com/yorkedegg/tonic/releases/latest/download/tonic.3gx) — goes on the 3ds, at `sd:/luma/plugins/00040000001B8700/tonic.3gx`
+- [TonicJava.jar](https://github.com/yorkedegg/tonic/releases/latest/download/TonicJava.jar) — goes on the server, in `plugins/`
+
+details on both below.
+
 ## what you need
 
 on the console side
@@ -26,12 +35,12 @@ on the server side
 ## setting it up
 
 **on the 3ds**
-1. copy `plugin/tonic/tonic.3gx` to `sd:/luma/plugins/00040000001B8700/tonic.3gx`
+1. put [tonic.3gx](https://github.com/yorkedegg/tonic/releases/latest/download/tonic.3gx) at `sd:/luma/plugins/00040000001B8700/tonic.3gx` (it's also in `plugin/tonic/` if you build it yourself)
 2. make a file `sd:/tonic.cfg` with one line in it: `1.2.3.4:27953` — your server's ip and the tunnel port. it has to be an ip, not a hostname (no dns yet)
 3. connect to wifi, launch the game, hit play → the join list shows a world called "Tonic". join it like you'd join a friend
 
 **on the server**
-1. build the plugin with `gradle paperJar` (needs java 21, gradle downloads it itself). the jar lands in `build/libs/`. drop it in `plugins/`
+1. drop [TonicJava.jar](https://github.com/yorkedegg/tonic/releases/latest/download/TonicJava.jar) in `plugins/` (or build it: `gradle paperJar`, needs java 21 and gradle fetches that itself, jar lands in `build/libs/`)
 2. start the server once so `plugins/TonicJava/config.yml` shows up, set `tunnel-port` to the port you opened
 3. floodgate has to be installed and running. tonicjava reads `plugins/floodgate/key.pem` to log the 3ds players in
 
