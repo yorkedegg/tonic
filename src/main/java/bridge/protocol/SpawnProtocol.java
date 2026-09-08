@@ -291,6 +291,8 @@ public final class SpawnProtocol implements RakNetSession.Handler {
                         javaLink.onBlockChange = ch -> onJavaBlockChange(session, ch);
                         javaLink.onInventory = () -> sendInventory(session);
                         javaLink.onPlayer = (pl, gone) -> onJavaPlayer(session, pl, gone);  // always on in live/plugin mode
+                        javaLink.onTime = t -> sendTime(session, t, false);
+                        if (javaLink.timeOfDay != -1) sendTime(session, javaLink.timeOfDay, true);  // the spawn's SetTime is a captured value
                         javaLink.onItemAdd = d -> onJavaItemAdd(session, d);
                         javaLink.onItemGone = eid -> onJavaItemGone(session, eid);
                         sendInventory(session);
@@ -357,6 +359,26 @@ public final class SpawnProtocol implements RakNetSession.Handler {
         String name = raw.replaceAll("[^A-Za-z0-9_]", "");
         if (name.isEmpty()) return null;
         return name.length() > 14 ? name.substring(0, 14) : name;
+    }
+
+    private volatile long lastTimeSentAt;
+    private volatile int lastTimeSent = -1;
+
+    /**
+     * Day/night. The client runs its own clock between updates (the StartGame gamerule has
+     * dodaylightcycle on), so the server's once-a-second Time Update only needs forwarding every
+     * few seconds to stay in step — plus immediately on a jump (a /time set, or the cycle being
+     * stopped, which Java signals with a negative time that must be re-pinned often).
+     */
+    private void sendTime(RakNetSession session, long javaTime, boolean force) {
+        int ticks = (int) (Math.abs(javaTime) % 24000L);
+        boolean stopped = javaTime < 0;
+        long now = System.currentTimeMillis();
+        int drift = lastTimeSent < 0 ? 24000 : Math.abs(ticks - lastTimeSent);
+        boolean due = now - lastTimeSentAt >= (stopped ? 1000 : 5000);
+        if (!force && !due && drift < 200) return;
+        lastTimeSentAt = now; lastTimeSent = ticks;
+        session.sendReliable(McpeBatch.build(Mcpe.setTime(ticks)));
     }
 
     private void handleWorldActions(RakNetSession session, byte[] payload) {

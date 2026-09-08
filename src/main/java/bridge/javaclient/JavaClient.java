@@ -61,6 +61,10 @@ public class JavaClient {   // non-final: BukkitJavaClient subclasses it for the
     public volatile java.util.function.Consumer<int[]> onDig;
     /** Plugin mode: {x,y,z,id,meta} — the cell to fill and the legacy block to put there. */
     public volatile java.util.function.Consumer<int[]> onPlace;
+    /** The server's time of day in ticks (negative = daylight cycle stopped), -1 until the first
+     *  Time Update. The server sends one every second. */
+    public volatile long timeOfDay = -1;
+    public volatile java.util.function.LongConsumer onTime = t -> {};
     /** A dropped item stack on the server, as the plugin sees it spawn (Bukkit ItemSpawnEvent). */
     public static final class ItemDrop {
         public final int entityId, itemId, count, damage;
@@ -451,6 +455,13 @@ public class JavaClient {   // non-final: BukkitJavaClient subclasses it for the
                     log.info(String.format("server dropped an item: entity %d at (%.1f,%.1f,%.1f)",
                             eid, ox, oy, oz));
                 }
+            }
+            case 0x47 -> { // Time Update: world age, then time of day — the day/night clock
+                long age = 0, tod = 0;
+                for (int i = 0; i < 8; i++) age = (age << 8) | (bin.read() & 0xFFL);
+                for (int i = 0; i < 8; i++) tod = (tod << 8) | (bin.read() & 0xFFL);
+                timeOfDay = tod;
+                onTime.accept(tod);
             }
             case 0x4B -> { // Collect Item: the bot picked a drop up
                 int collected = readVarInt(bin), collector = readVarInt(bin), count = readVarInt(bin);
