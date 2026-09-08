@@ -46,6 +46,13 @@ on the server side
 2. start the server once so `plugins/TonicJava/config.yml` shows up, set `tunnel-port` to the port you opened
 3. floodgate has to be installed and running. tonicjava reads `plugins/floodgate/key.pem` to log the 3ds players in
 
+**on azahar (the emulator), instead of a real 3ds**
+
+the same `tonic.3gx` works in stock azahar — no custom emulator build, no shim. azahar has luma's plugin loader built in, it's just off:
+1. with azahar closed, in `~/Library/Application Support/Azahar/config/qt-config.ini` (or the equivalent on your os) set `plugin_loader=true` **and** `plugin_loader\default=false` — if the `\default` line stays true, azahar ignores the value and keeps the loader off
+2. put `tonic.3gx` at `sdmc/luma/plugins/00040000001B8700/tonic.3gx` and `tonic.cfg` at the sdmc root, same as the console
+3. boot the game and join "Tonic". `sdmc/tonic.log` tells you what the plugin's doing — no ftp needed
+
 **skins (optional)**
 
 the 3ds only sends the *name* of its built in skin. the actual textures live on the console, so you dump them once:
@@ -73,6 +80,6 @@ short version. the long version is [FINDINGS.md](FINDINGS.md).
 
 ## notes
 
-[FINDINGS.md](FINDINGS.md) is the story of figuring all this out: the protocol, the beacon checksum, the uds hook, the crashes, the stuff that didn't work. there's also the original pc-hosted bridge from before the plugin existed (`bridge.Bridge` plus the azahar shim in `shim/`), it still builds.
+[FINDINGS.md](FINDINGS.md) is the story of figuring all this out: the protocol, the beacon checksum, the uds hook, the crashes, the stuff that didn't work. there's also the original pc-hosted bridge from before the plugin existed (`bridge.Bridge` plus the azahar shim in `shim/`), it still builds, but the plugin now runs in stock azahar so you don't need it.
 
 not affiliated with mojang, nintendo or other ocean.

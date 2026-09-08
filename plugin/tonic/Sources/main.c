@@ -27,6 +27,7 @@
 static char gHost[64] = BRIDGE_HOST;
 static u16  gPort     = BRIDGE_PORT;
 
+static bool gUnderAzahar;
 #define PLG_STACK_SIZE 0x4000
 static u8 stack[PLG_STACK_SIZE] __attribute__((aligned(8)));
 static Handle thread;
@@ -168,7 +169,8 @@ static void probeBridge(void) {
 static void ThreadMain(void *arg) {
     (void)arg;
     fsInit();
-    logLine("tonic: plugin loaded and running inside the game\n");
+    logLine(gUnderAzahar ? "tonic: plugin loaded and running inside the game (azahar's loader)\n"
+                         : "tonic: plugin loaded and running inside the game\n");
     probeBridge();
 
     // Scan and patch from here, not from main(): at plugin load the game's code pages may not
@@ -197,7 +199,14 @@ static void ThreadMain(void *arg) {
 
 void main(void) {
     PluginHeader *header = (PluginHeader *)0x07000000;
-    if (header->magic != HeaderMagic) return;
+    // Luma writes "3GX$" here. Azahar's 3GX loader fills the header (version, heapVA at
+    // 0x06000000, heapSize) but never the magic, so accept a magic-less header that otherwise
+    // looks right instead of silently doing nothing in the emulator.
+    bool luma = header->magic == HeaderMagic;
+    bool azahar = header->magic == 0 && header->version != 0
+               && header->heapVA == 0x06000000 && header->heapSize != 0;
+    if (!luma && !azahar) return;
+    gUnderAzahar = azahar;
     __system_allocateHeaps(header);
     srvInit();
     plgLdrInit();

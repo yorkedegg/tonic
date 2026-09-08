@@ -19,7 +19,7 @@ Description: |
   every ten seconds after, and does nothing else. Confirms the plugin loads under this title, runs
   code, does I/O, and stays alive — all of which the UDS hook depends on.
 
-Compatibility: Console
+Compatibility: ConsoleCitra
 
 MemorySize: 5MiB
 
