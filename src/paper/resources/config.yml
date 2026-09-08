@@ -1,0 +1,14 @@
+# Port the 3DS (Tonic plugin) connects to. Must match the extra allocation you opened on the
+# Modrinth panel (e.g. 27953). The plugin binds this inside the container; Modrinth forwards
+# the external port to it.
+tunnel-port: 27953
+
+# Chunk radius captured around the world spawn and served to the 3DS (2 = a 5x5 area, matching the
+# MC3DS spawn encoder). Larger shows more terrain but costs more main-thread time per join.
+spawn-chunk-radius: 2
+
+# 3DS skins for Java viewers. PNGs + index.tsv go under plugins/TonicJava/skins/ (made by
+# tools/3dst2png.py from a RomFS dump of resourcepacks/skins/skinpacks). Each skin is signed ONCE
+# through MineSkin and cached; you need an API key from account.mineskin.org/keys. Empty = off.
+mineskin-key: ""
+mineskin-user-agent: "TonicJava/0.1 (3DS bridge)"

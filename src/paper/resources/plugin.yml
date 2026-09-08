@@ -1,0 +1,6 @@
+name: TonicJava
+version: 0.1.0
+main: bridge.paper.TonicJavaPlugin
+api-version: '1.21'
+description: Server side of Tonic — lets Minecraft New Nintendo 3DS Edition clients (Tonic3DS) join this server.
+author: tonic
