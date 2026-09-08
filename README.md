@@ -1,4 +1,6 @@
 # tonic
+this is a alpha. a minimum viable product. expect alotta bugs and missing features.
+dm eg.o on discord for things
 
 minecraft: new nintendo 3ds edition, playing on a real java server. over the internet. with your 3ds skin.
 
