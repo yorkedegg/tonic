@@ -20,7 +20,12 @@
 
 #include "sites.h"
 #define NSITES (sizeof(SITES) / sizeof(SITES[0]))
-#define VWORDS 12                                  // words per veneer (11 used, padded)
+#define VWORDS 12
+/* The tail of the game's last executable page: 2012 bytes of zero padding after the final "bx lr"
+ * at 0x00918820, running to the page end at 0x00919000. 156 stubs need 1248 of them. Verified
+ * empty at run time before anything is written, so a different binary refuses instead of corrupting
+ * itself. */
+#define THUNKS 0x00918840u                                  // words per veneer (11 used, padded)
 
 static u32 veneers[NSITES * VWORDS] __attribute__((aligned(32)));
 static u32 nInstalled;
@@ -364,11 +369,36 @@ void hookInstall(void) {
     veneerBase = (u32)veneers;
     hookStage = 2;
 
+    /* Patch each site with ONE word, not two. This is the whole fix for the start-up hang.
+     *
+     * The old patch wrote a pair: "ldr pc,[pc,#-4]" over the svc, and the veneer's address into the
+     * word after it. Those two stores cannot be made simultaneous, and if a core refetched that
+     * cache line in between it saw the game's original svc followed by an address where an
+     * instruction should be. That is exactly the reported crash -- UndefinedInstruction at
+     * 0x004AD5EC, which is site 0x004AD5E8 plus four. Two stores, two chances, 156 sites, every
+     * launch: it hung or crashed far more often than it had any right to, and it moved around
+     * whenever unrelated code changed the layout, because the layout decides what that stray word
+     * decodes to.
+     *
+     * A branch reaches only +-32MB, so it cannot reach a veneer in plugin memory 112MB away. But it
+     * does not have to: it only has to reach a two-word stub, and the game's own .text ends at
+     * 0x00918824 with 2012 bytes of zero padding running to the end of that executable page. That
+     * is room for all 156 stubs with space left over. So each site becomes a single "b stub", the
+     * stub does the far jump to the veneer, and one aligned 32-bit store is either seen or not
+     * seen. There is no half-patched state left to race with.
+     *
+     * Patch EVERY site, still. Narrowing this was a mistake twice: the disconnect path runs through
+     * a site outside the uds cluster, and skipping it crashed the console on Disconnect every time.
+     */
     for (u32 s = 0; s < NSITES; s++) {
-        u32 site = SITES[s];
-        volatile u32 *at = (volatile u32 *)site;
+        if (*(volatile u32 *)(THUNKS + s * 8) || *(volatile u32 *)(THUNKS + s * 8 + 4)) {
+            logLine("tonic: hook: the .text padding is not empty - refusing to patch\n");
+            hookStage = 8;
+            return;
+        }
+    }
+    for (u32 s = 0; s < NSITES; s++) {
         u32 *v = &veneers[s * VWORDS];
-        u32 ins = at[1];                            // the instruction the patch will clobber
         u32 blOff = ((u32)&udsAnswer - ((u32)&v[3] + 8)) >> 2;
         v[0]  = 0xE92D5FFFu;                        // stmfd sp!, {r0-r12, lr}
         v[1]  = 0xE1A0000Du;                        // mov r0, sp     (&saved; saved[0] = handle)
@@ -376,34 +406,46 @@ void hookInstall(void) {
         v[3]  = 0xEB000000u | (blOff & 0xFFFFFF);   // bl udsAnswer   (r0 = 0 pass / 1 handled)
         v[4]  = 0xE3500000u;                        // cmp r0, #0
         v[5]  = 0xE8BD5FFFu;                        // ldmfd sp!, {r0-r12, lr}   (flags preserved)
-        v[6]  = 0x1A000000u;                        // bne +0 -> skip the svc (handled)
+        v[6]  = 0x1A000000u;                        // bne +0 -> v[8], skipping the svc (handled)
         v[7]  = 0xEF000032u;                        // svc 0x32       (pass-through: real request)
-        v[8]  = ins;                                // replay the clobbered instruction
-        v[9]  = 0xE51FF004u;                        // ldr pc, [pc, #-4]
-        v[10] = site + 8;                           // return to just past the patch
-        v[11] = 0;
-        // Log BEFORE each cache SVC for the first site, so a fault names the exact call.
-        char line[96];
-        if (s == 0) { sprintf(line, "tonic: hook: flush veneer @0x%08lX\n", (unsigned long)v); logLine(line); }
-        Result r = svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32)v, VWORDS * 4);
-        if (R_FAILED(r) && !flushRes[0]) flushRes[0] = (u32)r;
-        hookStage = 3;
+        v[8]  = 0xE51FF004u;                        // ldr pc, [pc, #-4]
+        v[9]  = SITES[s] + 4;                       // back to the instruction after the svc
+        v[10] = v[11] = 0;
 
-        at[1] = (u32)v;                             // the far address first...
-        at[0] = 0xE51FF004u;                        // ...then ldr pc, [pc, #-4] to reach it
-        if (s == 0) { sprintf(line, "tonic: hook: flush site @0x%08lX\n", (unsigned long)site); logLine(line); }
-        r = svcFlushProcessDataCache(CUR_PROCESS_HANDLE, site, 8);
+        volatile u32 *t = (volatile u32 *)(THUNKS + s * 8);
+        t[0] = 0xE51FF004u;                         // ldr pc, [pc, #-4]  (the far jump)
+        t[1] = (u32)v;
+    }
+    {   // make veneers and stubs real, executable code before a single site points at them
+        Result r = svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32)veneers, sizeof(veneers));
+        if (R_FAILED(r)) flushRes[0] = (u32)r;
+        r = svcFlushProcessDataCache(CUR_PROCESS_HANDLE, THUNKS, NSITES * 8);
+        if (R_FAILED(r) && !flushRes[0]) flushRes[0] = (u32)r;
+        svcInvalidateEntireInstructionCache();
+    }
+    hookStage = 3;
+
+    for (u32 s = 0; s < NSITES; s++) {
+        volatile u32 *at = (volatile u32 *)SITES[s];
+        u32 off = ((THUNKS + s * 8) - (SITES[s] + 8)) >> 2;
+        Result r;
+        at[0] = 0xEA000000u | (off & 0x00FFFFFFu);  // b stub -- one store, no in-between state
+        r = svcFlushProcessDataCache(CUR_PROCESS_HANDLE, SITES[s], 4);
         if (R_FAILED(r) && !flushRes[1]) flushRes[1] = (u32)r;
         nInstalled++;
-        (void)line;
     }
     hookStage = 5;
     // Same sequence CTRPF's HookManager uses after every hook (its Luma range calls are commented
     // out there for a reason). No svcFlushEntireDataCache: CTRPF never calls it, and it is only
     // the range routine with len=-1 underneath.
-    logLine("tonic: hook: invalidate entire icache\n");
     svcInvalidateEntireInstructionCache();
     hookStage = 4;
+    {   // safe to touch the filesystem again: every site and every veneer is coherent now
+        char line[112];
+        sprintf(line, "tonic: hook: %lu sites live, veneers @0x%08lX, icache invalidated\n",
+                (unsigned long)nInstalled, (unsigned long)veneerBase);
+        logLine(line);
+    }
 }
 
 extern volatile u32 hookStage;

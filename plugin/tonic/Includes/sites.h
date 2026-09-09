@@ -28,6 +28,10 @@ static const u32 SITES[] = {
     0x004C89DC, 0x004C8A08, 0x004C8A38, 0x004C8A68, 0x004C8AC4, 0x004C8AF4,
     0x004C8B54, 0x004CAA74, 0x004CAAF0, 0x004CAB3C, 0x004CABB0, 0x004CAC00,
     0x004CAC38, 0x004CAC84, 0x004CACB8, 0x004CACEC, 0x004CAD24,
+    /* The one `ldr r0,[rX]; svc 0x32` site the original scan skipped. Never patched by any
+     * build, so a uds command going through it reached the real, uninitialised nwm and
+     * killed the game -- which is what Disconnect does. */
+    0x00123B84,
 };
 static const u8 IS_UDS[] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -37,4 +41,5 @@ static const u8 IS_UDS[] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,
+    0,   /* 0x00123B84: handle comes from a struct, so filter it by handle value */
 };

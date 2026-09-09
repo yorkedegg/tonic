@@ -15,6 +15,7 @@
 #include "plgldr.h"
 #include "tunnel.h"
 #include "hook.h"
+#include "sites.h"
 
 // Where the bridge is. The console reaches it over ordinary Wi-Fi — UDS is replaced wholesale
 // rather than tunnelled, so the radio is never in local-wireless mode.
@@ -184,7 +185,22 @@ static void ThreadMain(void *arg) {
     // Scan and patch from here, not from main(): at plugin load the game's code pages may not
     // be populated yet, and a scan then finds nothing without ever faulting — which is what the
     // first attempt reported.
-    svcSleepThread(2000ULL * 1000 * 1000);
+    /* Wait for the condition, not for a number. A flat two-second sleep was standing in for "the
+     * game's code pages are mapped by now", and it is a bad proxy in both directions: too short on
+     * a slow load, and needlessly late on a fast one. Late matters, because the patch loop rewrites
+     * code the game is running -- the more of its start-up traffic is flowing through those sites
+     * while we work, the more often the install hangs. So poll the first site until it actually
+     * reads as the svc the table says lives there, then go. */
+    u32 waitedMs = 0;
+    while (waitedMs < 8000 && *(volatile u32 *)SITES[0] != 0xEF000032u) {
+        svcSleepThread(10ULL * 1000 * 1000);
+        waitedMs += 10;
+    }
+    {
+        char wl[96];
+        sprintf(wl, "tonic: hook: code pages ready after %lums\n", (unsigned long)waitedMs);
+        logLine(wl);
+    }
     if (!gHaveConfig) {
         logLine("tonic: no config, so no hooks - the game runs untouched\n");
     } else {
