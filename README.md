@@ -23,16 +23,16 @@ details on both below.
 ## what you need
 
 on the console side
-- a new 3ds / new 2ds with luma3ds and the plugin loader turned on (rosalina menu → plugin loader)
-- minecraft: new nintendo 3ds edition, **usa version, fully updated (the v9.12.0 update)**. tonic patches the game's code at fixed addresses that were worked out for exactly that binary. other regions or older updates will just crash at launch. most us copies are on the last update since the eshop closed, so this is usually fine
-- wifi. the 3ds has one radio and "local play" normally kills your internet. tonic stops that (hopefully)
+a new nintendo 3ds with luma.
+a usa copy of mc3ds with the update
+a brain
 
 on the server side
 - paper 1.21.x
-- floodgate — this is what lets a 3ds be a real player on an online-mode server
-- viaversion + viabackwards — the 3ds side talks to the server in an old protocol version
+- floodgate 
+- viaversion + viabackwards  
 - a tcp port you can open for the tunnel (default 27953)
-- optional: a mineskin api key, if you want pc players to see the 3ds skins
+- optional: a mineskin api key, 
 
 ## setting it up
 
@@ -72,6 +72,6 @@ the 3ds only sends the *name* of its built in skin. the actual textures live on 
 
 ## notes
 
-[FINDINGS.md](FINDINGS.md) is the story of figuring all this out: the protocol, the beacon checksum, the uds hook, the crashes, the stuff that didn't work. there's also the original pc-hosted bridge from before the plugin existed (`bridge.Bridge` plus the azahar shim in `shim/`), it still builds, but the plugin now runs in stock azahar so you don't need it.
+[FINDINGS.md](FINDINGS.md) how it got done
 
 not affiliated with mojang, nintendo or other ocean.
