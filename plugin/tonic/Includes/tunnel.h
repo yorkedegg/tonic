@@ -32,3 +32,6 @@ u32  tunnelPollData(u8 *out, u32 maxlen, u8 *src, u8 *channel, s64 timeout_ms);
 bool tunnelReconnect(void);
 /** Cumulative tunnel counters, for diagnostics. */
 void tunnelStats(u32 *recvBytes, u32 *recvFrames, u32 *sendErr, int *lastErrno);
+
+/** Frames dropped because the tunnel would have blocked the game thread. */
+u32 tunnelTxDrops(void);

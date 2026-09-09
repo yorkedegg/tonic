@@ -449,9 +449,10 @@ u32 hookDrain(char *out, u32 max) {
     if (answeredPull != lastPull) {
         u32 rb = 0, rf = 0, se = 0; int le = 0; tunnelStats(&rb, &rf, &se, &le);
         n += snprintf(out + n, max - n,
-                      "tonic: PullPacket x%lu (%lu DATA) | SendTo x%lu | tunnel rx=%lu bytes/%lu frames txerr=%lu\n",
+                      "tonic: PullPacket x%lu (%lu DATA) | SendTo x%lu | tunnel rx=%lu bytes/%lu frames txerr=%lu txdrop=%lu\n",
                       (unsigned long)(answeredPull - lastPull), (unsigned long)answeredPullData,
-                      (unsigned long)answeredSend, (unsigned long)rb, (unsigned long)rf, (unsigned long)se);
+                      (unsigned long)answeredSend, (unsigned long)rb, (unsigned long)rf, (unsigned long)se,
+                      (unsigned long)tunnelTxDrops());
         if (se) { n += snprintf(out + n, max - n, "tonic: tunnel last send errno=%d, %lu handles\n", le, (unsigned long)nUdsHandles); }
         lastPull = answeredPull; lastSend = answeredSend;
     }

@@ -59,6 +59,22 @@ static bool recvAll(u8 *p, u32 n) {
     return true;
 }
 
+/**
+ * Is there room in the socket's send buffer? The reads were made non-blocking long ago, but the
+ * writes were not, and send() blocks once that buffer fills — on the GAME thread, which freezes
+ * the console outright (Rosalina still opens, since only this process is stuck). A friend's log
+ * ends exactly that way: six minutes of healthy traffic, txerr=0, then nothing.
+ */
+static bool writable(int ms) {
+    struct pollfd pfd; pfd.fd = sock; pfd.events = POLLOUT; pfd.revents = 0;
+    return poll(&pfd, 1, ms) > 0 && (pfd.revents & POLLOUT);
+}
+
+/** How long the game thread may wait for the tunnel before we give up on a frame. */
+#define TX_WAIT_MS 20
+static u32 gTxDrop;
+u32 tunnelTxDrops(void) { return gTxDrop; }
+
 static void sendFrame(u8 type, u8 src, u8 dst, u8 channel, const u8 *data, u32 len) {
     if (sock < 0) return;
     u8 head[6];
@@ -66,6 +82,10 @@ static void sendFrame(u8 type, u8 src, u8 dst, u8 channel, const u8 *data, u32 l
     head[0] = (u8)(total >> 8); head[1] = (u8)total;
     head[2] = type; head[3] = src; head[4] = dst; head[5] = channel;
     LightLock_Lock(&lock);
+    // Drop the frame WHOLE rather than stall the game, and never write a partial one — half a
+    // frame would desync the stream for good. This is a UDS datagram send, which is allowed to
+    // lose packets, and RakNet retransmits, so a drop costs nothing but a freeze cost everything.
+    if (!writable(TX_WAIT_MS)) { gTxDrop++; LightLock_Unlock(&lock); return; }
     if (sendAll(head, 6) && len) sendAll(data, len);
     LightLock_Unlock(&lock);
 }
