@@ -1,77 +1,121 @@
 # tonic
-this is a alpha. a minimum viable product. expect alotta bugs and missing features.
-dm eg.o on discord for things
 
-mc3ds 
+> **Alpha / Minimum Viable Product**
+> Expect bugs and missing features. DM `eg.o` on Discord for feedback/issues.
 
-the two plugins
+Connect Minecraft 3DS Edition (`mc3ds`) to a Paper Java server.
 
-- **tonic3ds** — luma 3gx plugin, 
-- **tonicjava** — a paper plugin on the server. connections become players thru floodgate
+---
 
+## Overview
 
+Tonic consists of two main components:
 
-## download
+* **`tonic3ds`** — Luma 3GX plugin running on the 3DS.
+* **`tonicjava`** — Paper server plugin that bridges connections via Floodgate.
 
-two files, from the [latest release](https://github.com/yorkedegg/tonic/releases/latest):
+---
 
-- [tonic.3gx](https://github.com/yorkedegg/tonic/releases/latest/download/tonic.3gx) — goes on the 3ds, at `sd:/luma/plugins/00040000001B8700/tonic.3gx`
-- [TonicJava.jar](https://github.com/yorkedegg/tonic/releases/latest/download/TonicJava.jar) — goes on the server, in `plugins/`
+## Download
 
-details on both below.
+Get both files from the [latest release](https://www.google.com/search?q=../../releases):
 
-## what you need
+* `tonic.3gx` $\rightarrow$ place at `sd:/luma/plugins/00040000001B8700/tonic.3gx`
+* `TonicJava.jar` $\rightarrow$ place in your server's `plugins/` folder
 
-on the console side
-a new nintendo 3ds with luma.
-a usa copy of mc3ds with the update
-a brain
+---
 
-on the server side
-- paper 1.21.x
-- floodgate 
-- viaversion + viabackwards  
-- a tcp port you can open for the tunnel (default 27953)
-- optional: a mineskin api key, 
+## Prerequisites
 
-## setting it up
+### Console
 
-**on the 3ds**
-1. put [tonic.3gx](https://github.com/yorkedegg/tonic/releases/latest/download/tonic.3gx) at `sd:/luma/plugins/00040000001B8700/tonic.3gx` (it's also in `plugin/tonic/` if you build it yourself)
-2. make a file `sd:/tonic.cfg` with one line in it: `1.2.3.4:27953` — your server's public ip and the tunnel port. it has to be an ip, not a hostname (no dns yet). no file = tonic does nothing and says so in `sd:/tonic.log`
-3. connect to wifi, launch the game, hit play → the join list shows a world called "Tonic". join it like you'd join a friend
+* New Nintendo 3DS running Luma3DS
+* USA copy of *Minecraft: 3DS Edition* with the v1.9 / v9.12.0 update
+* A brain
 
-**on the server**
-1. drop [TonicJava.jar](https://github.com/yorkedegg/tonic/releases/latest/download/TonicJava.jar) in `plugins/` (or build it: `gradle paperJar`, needs java 21 and gradle fetches that itself, jar lands in `build/libs/`)
-2. start the server once so `plugins/TonicJava/config.yml` shows up, set `tunnel-port` to the port you opened
-3. floodgate has to be installed and running. tonicjava reads `plugins/floodgate/key.pem` to log the 3ds players in
+### Server
 
-**on azahar (the emulator), instead of a real 3ds**
+* Paper 1.21.x
+* [Floodgate](https://www.google.com/search?q=https://geysermc.org/floodgate)
+* ViaVersion + ViaBackwards
+* An open TCP port for the tunnel (default: `27953`)
+* *Optional:* MineSkin API key
 
-the same `tonic.3gx` works in stock azahar — no custom emulator build, no shim. azahar has luma's plugin loader built in, it's just off:
-1. install the **v9.12.0 update cia** in azahar as well (file → install cia). the base game on its own is v0.1.0, which is a different binary — tonic will refuse to touch it and tell you why in `sdmc/tonic.log`
-2. with azahar closed, in `~/Library/Application Support/Azahar/config/qt-config.ini` (or the equivalent on your os) set `plugin_loader=true` **and** `plugin_loader\default=false` — if the `\default` line stays true, azahar ignores the value and keeps the loader off
-3. put `tonic.3gx` at `sdmc/luma/plugins/00040000001B8700/tonic.3gx` and `tonic.cfg` at the sdmc root, same as the console. the cfg isn't optional
-4. boot the game and join "Tonic". `sdmc/tonic.log` tells you what the plugin's doing — no ftp needed
+---
 
-**skins (optional)**
+## Setup
 
-the 3ds only sends the *name* of its built in skin. the actual textures live on the console, so you dump them once:
-1. with godmode9, copy `romfs/resourcepacks/skins/skinpacks/` out of your game to the sd card
-2. `python3 tools/3dst2png.py <that folder> plugins/TonicJava/skins` — converts all 600ish skins to pngs and writes an index. it also rebuilds the ones that use their own 3ds-only model so they fit java's model
-3. put a mineskin api key in config.yml (`mineskin-key`). java clients only accept skins signed by mojang, and mineskin does the signing. each skin is signed once, the first time someone wears it, and cached forever after
+### On 3DS
+
+1. Copy `tonic.3gx` to `sd:/luma/plugins/00040000001B8700/tonic.3gx`.
+2. Create `sd:/tonic.cfg` with a single line containing your server IP and port:
+```text
+1.2.3.4:27953
+
+```
 
 
-## stuff that doesn't work (yet)
+*Must be a raw IP address, not a hostname (no DNS support yet).*
+*(If missing, Tonic will remain inactive and log to `sd:/tonic.log`)*.
+3. Connect to Wi-Fi, launch the game, and tap **Play**.
+4. Select **Tonic** from your join list (it appears as a local world).
 
-- only the usa v9.12.0 binary, see above
-- two 3ds with the same player name can't both be on (the second one kicks the first)
-- no mobs on the 3ds, only players and drops
-- a few 3ds skins have extra bits on their own model (mario's nose, r2d2...). java only has the one model so those bits are lost, and the fully non-humanoid ones get transparent parts instead of garbage
-- if the tunnel drops there's no reconnect, you rejoin from the join list
+### On Server
 
-## notes
+1. Drop `TonicJava.jar` into your `plugins/` directory.
+*(To build from source: `./gradlew paperJar`. Requires Java 21; output lands in `build/libs/`)*.
+2. Run the server once to generate `plugins/TonicJava/config.yml`.
+3. Set `tunnel-port` in `config.yml` to your opened TCP port.
+4. Ensure Floodgate is installed and running (`TonicJava` reads `plugins/floodgate/key.pem` to authenticate 3DS players).
 
-[FINDINGS.md](FINDINGS.md) how it got done
+### On Azahar (Emulator)
 
-not affiliated with mojang, nintendo or other ocean.
+1. Install the v9.12.0 update CIA in Azahar via **File $\rightarrow$ Install CIA**.
+*(The base v0.1.0 game binary is incompatible; Tonic will refuse to load and log why to `sdmc/tonic.log`)*.
+2. Close Azahar and open `qt-config.ini` located in your Azahar config directory (`~/Library/Application Support/Azahar/config/` on macOS or OS equivalent).
+3. Set the following configuration values:
+```ini
+plugin_loader=true
+plugin_loader\default=false
+
+```
+
+
+*(If `plugin_loader\default` remains `true`, Azahar overrides your setting and disables the loader)*.
+4. Copy `tonic.3gx` to `sdmc/luma/plugins/00040000001B8700/tonic.3gx` and place `tonic.cfg` at the root of `sdmc/`.
+5. Launch the game and join **Tonic**. Check `sdmc/tonic.log` for status updates.
+
+---
+
+## Skins (Optional)
+
+The 3DS client only transmits internal skin names. Raw skin textures are stored locally on the console and must be dumped once:
+
+1. Using **GodMode9**, dump `romfs/resourcepacks/skins/skinpacks/` from your game copy to your SD card.
+2. Run the conversion script:
+```bash
+python3 tools/3dst2png.py <path_to_skinpacks> plugins/TonicJava/skins
+
+```
+
+
+*Converts ~600 3DS skins into standard PNGs, builds an index, and remaps 3DS-specific models to fit Java geometry.*
+3. Add a MineSkin API key to `config.yml` (`mineskin-key`).
+*Java clients require skins signed by Mojang. MineSkin signs each skin on first use and caches it permanently.*
+
+---
+
+## Known Limitations
+
+* **USA v9.12.0 binary only.**
+* **Duplicate usernames:** Two 3DS players using the same username cannot be online at the same time (the second connection kicks the first).
+* **Entities:** No mob support on 3DS yet—only players and dropped items render.
+* **Skin details:** 3DS-specific model extensions (e.g., Mario's nose, R2-D2 parts) are lost during conversion. Fully non-humanoid skins render with transparent sections.
+* **Disconnects:** Tunnel drops do not auto-reconnect. You must manually rejoin from the world list.
+
+---
+
+## Notes
+
+* Read [`FINDINGS.md`](https://www.google.com/search?q=FINDINGS.md) for details on how this was reverse-engineered.
+* Not affiliated with Mojang, Nintendo, or Other Ocean.
