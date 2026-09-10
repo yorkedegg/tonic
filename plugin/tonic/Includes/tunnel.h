@@ -30,5 +30,7 @@ u32  tunnelPopData(u8 channel, u8 *out, u32 maxlen, u8 *srcNode);
 u32  tunnelPollData(u8 *out, u32 maxlen, u8 *src, u8 *channel, s64 timeout_ms);
 /** Close and reopen a fresh socket to the last host:port. Returns true on success. */
 bool tunnelReconnect(void);
+/** Frames dropped because the outbound ring was full. */
+u32 tunnelTxDropped(void);
 /** Cumulative tunnel counters, for diagnostics. */
 void tunnelStats(u32 *recvBytes, u32 *recvFrames, u32 *sendErr, int *lastErrno);

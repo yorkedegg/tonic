@@ -59,13 +59,78 @@ static bool recvAll(u8 *p, u32 n) {
     return true;
 }
 
+/* --- outbound ring ----------------------------------------------------------------------------
+ * sendFrame used to call send() directly, holding the tunnel lock, on whatever thread asked -- and
+ * the thread that asks most is the GAME thread, inside a uds SendTo. Once the socket's send buffer
+ * fills (a slow server, a wifi hiccup) that send blocks, and a blocked game thread is a frozen
+ * console: Rosalina still opens because only this process is stuck. That is exactly how a friend's
+ * console died six minutes into a session, with txerr=0 in the log proving send() had not errored,
+ * it had simply never returned.
+ *
+ * So the game thread no longer touches the socket at all. It copies the frame into this ring and
+ * returns; a thread of our own drains it with blocking sends, where blocking costs nothing. If the
+ * ring is full the frame is dropped WHOLE and counted -- never partially, which would desync the
+ * length-prefixed stream for good. Dropping is legal here: this is carrying a uds datagram send,
+ * which may lose packets, and RakNet retransmits.
+ */
+#define TXRING 32768u
+static u8  txbuf[TXRING];
+static volatile u32 txHead, txTail, gTxDrop;
+static LightLock txLock;
+static u8  txStack[4096] __attribute__((aligned(8)));
+static Handle txThread;
+static volatile bool txRun;
+
+static u32 txFree(void) { return TXRING - 1u - ((txHead - txTail) & (TXRING - 1u)); }
+
+static void txPush(const u8 *head, u32 hn, const u8 *data, u32 dn) {
+    u32 i, h;
+    LightLock_Lock(&txLock);
+    if (hn + dn > txFree()) { gTxDrop++; LightLock_Unlock(&txLock); return; }
+    h = txHead;
+    for (i = 0; i < hn; i++) txbuf[(h + i) & (TXRING - 1u)] = head[i];
+    for (i = 0; i < dn; i++) txbuf[(h + hn + i) & (TXRING - 1u)] = data[i];
+    txHead = (h + hn + dn) & (TXRING - 1u);
+    LightLock_Unlock(&txLock);
+}
+
+static void txMain(void *arg) {
+    static u8 chunk[2048];
+    (void)arg;
+    while (txRun) {
+        u32 n = 0;
+        LightLock_Lock(&txLock);
+        while (n < sizeof(chunk) && txTail != txHead) {
+            chunk[n++] = txbuf[txTail];
+            txTail = (txTail + 1u) & (TXRING - 1u);
+        }
+        LightLock_Unlock(&txLock);
+        if (!n) { svcSleepThread(2ll * 1000 * 1000); continue; }   /* 2 ms */
+        LightLock_Lock(&lock);                                     /* serialise with reconnects */
+        if (sock >= 0) sendAll(chunk, n);
+        LightLock_Unlock(&lock);
+    }
+    svcExitThread();
+}
+
+static void txStart(void) {
+    if (txRun) return;
+    txHead = txTail = 0;
+    txRun = true;
+    if (R_FAILED(svcCreateThread(&txThread, txMain, 0,
+                                 (u32 *)(txStack + sizeof(txStack)), 0x30, -2))) {
+        txRun = false;                                             /* fall back to sending inline */
+    }
+}
+
 static void sendFrame(u8 type, u8 src, u8 dst, u8 channel, const u8 *data, u32 len) {
-    if (sock < 0) return;
     u8 head[6];
     u32 total = 4 + len;
+    if (sock < 0) return;
     head[0] = (u8)(total >> 8); head[1] = (u8)total;
     head[2] = type; head[3] = src; head[4] = dst; head[5] = channel;
-    LightLock_Lock(&lock);
+    if (txRun) { txPush(head, 6, data, len); return; }
+    LightLock_Lock(&lock);                                         /* only if the thread never started */
     if (sendAll(head, 6) && len) sendAll(data, len);
     LightLock_Unlock(&lock);
 }
@@ -143,6 +208,7 @@ bool tunnelConnect(const char *host, u16 port) {
     strncpy(savedHost, host, sizeof(savedHost) - 1); savedHost[sizeof(savedHost)-1] = 0;
     savedPort = port;
     LightLock_Init(&lock);
+    LightLock_Init(&txLock);
     LightEvent_Init(&beaconEvent, RESET_ONESHOT);
     LightEvent_Init(&connectEvent, RESET_ONESHOT);
     qHead = qCount = 0;
@@ -161,6 +227,7 @@ bool tunnelConnect(const char *host, u16 port) {
     }
 
     running = true;
+    txStart();
     return true;
 }
 
@@ -175,6 +242,8 @@ bool tunnelReconnect(void) {
     if (!savedPort) return false;
     return tunnelConnect(savedHost, savedPort);
 }
+
+u32 tunnelTxDropped(void) { return gTxDrop; }
 
 void tunnelStats(u32 *recvBytes, u32 *recvFrames, u32 *sendErr, int *lastErrno) {
     if (recvBytes) *recvBytes = gRecvBytes;

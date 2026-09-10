@@ -347,6 +347,32 @@ void hookInstall(void) {
     // patch replaces (the table is from the USA v9.12.0 .code); on any other region or update the
     // addresses land on unrelated instructions and the game dies the moment one runs. A friend's
     // azahar with only the base v0.1.0 .cci and no update installed was exactly this.
+    /* Fingerprint the build before anything else. The site check below only asks whether each
+     * address happens to hold an svc 0x32, and svcSendSyncRequest is inlined all over this game --
+     * a DIFFERENT build can pass that test with all 156 sites landing on unrelated syscalls. Then we
+     * answer requests that were never uds and let real ones through half-formed, and the nwm
+     * sysmodule dereferences a context it never initialised and takes a data abort. That is not a
+     * theoretical worry: a user hit exactly that, crashing in nwm the moment they opened
+     * multiplayer. Four words is enough to tell the right .code from a stranger. */
+    {
+        static const u32 EXPECT[4] = {0xEB000007u, 0xEB001553u, 0xEB008F8Au, 0xEB00156Eu};
+        if (firstWords[0] != EXPECT[0] || firstWords[1] != EXPECT[1] ||
+            firstWords[2] != EXPECT[2] || firstWords[3] != EXPECT[3]) {
+            char line[176];
+            sprintf(line, "tonic: WRONG GAME BUILD - text starts %08lX %08lX %08lX %08lX\n",
+                    (unsigned long)firstWords[0], (unsigned long)firstWords[1],
+                    (unsigned long)firstWords[2], (unsigned long)firstWords[3]);
+            logLine(line);
+            sprintf(line, "tonic:   expected %08lX %08lX %08lX %08lX (USA 00040000001B8700 on update v9.12.0)\n",
+                    (unsigned long)EXPECT[0], (unsigned long)EXPECT[1],
+                    (unsigned long)EXPECT[2], (unsigned long)EXPECT[3]);
+            logLine(line);
+            logLine("tonic:   a EUR or JPN copy, or a different update, needs its own site table.\n");
+            logLine("tonic:   not patching - the game runs untouched, multiplayer will just do a real scan.\n");
+            hookStage = 9;
+            return;
+        }
+    }
     {
         u32 bad = 0, firstBad = 0;
         for (u32 s = 0; s < NSITES; s++) {
@@ -491,9 +517,11 @@ u32 hookDrain(char *out, u32 max) {
     if (answeredPull != lastPull) {
         u32 rb = 0, rf = 0, se = 0; int le = 0; tunnelStats(&rb, &rf, &se, &le);
         n += snprintf(out + n, max - n,
-                      "tonic: PullPacket x%lu (%lu DATA) | SendTo x%lu | tunnel rx=%lu bytes/%lu frames txerr=%lu\n",
+                      "tonic: PullPacket x%lu (%lu DATA) | SendTo x%lu | tunnel rx=%lu bytes/%lu frames"
+                      " txerr=%lu txdrop=%lu\n",
                       (unsigned long)(answeredPull - lastPull), (unsigned long)answeredPullData,
-                      (unsigned long)answeredSend, (unsigned long)rb, (unsigned long)rf, (unsigned long)se);
+                      (unsigned long)answeredSend, (unsigned long)rb, (unsigned long)rf,
+                      (unsigned long)se, (unsigned long)tunnelTxDropped());
         if (se) { n += snprintf(out + n, max - n, "tonic: tunnel last send errno=%d, %lu handles\n", le, (unsigned long)nUdsHandles); }
         lastPull = answeredPull; lastSend = answeredSend;
     }
