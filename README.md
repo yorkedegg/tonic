@@ -18,7 +18,7 @@ Tonic consists of two main components:
 
 ## Download
 
-Get both files from the [latest release](https://www.google.com/search?q=../../releases):
+Get both files from the [latest release](https://github.com/yorkedegg/tonic/releases/latest):
 
 * `tonic.3gx` $\rightarrow$ place at `sd:/luma/plugins/00040000001B8700/tonic.3gx`
 * `TonicJava.jar` $\rightarrow$ place in your server's `plugins/` folder
@@ -36,7 +36,7 @@ Get both files from the [latest release](https://www.google.com/search?q=../../r
 ### Server
 
 * Paper 1.21.x
-* [Floodgate](https://www.google.com/search?q=https://geysermc.org/floodgate)
+* [Floodgate](https://geysermc.org/floodgate)
 * ViaVersion + ViaBackwards
 * An open TCP port for the tunnel (default: `27953`)
 * *Optional:* MineSkin API key
@@ -117,5 +117,5 @@ python3 tools/3dst2png.py <path_to_skinpacks> plugins/TonicJava/skins
 
 ## Notes
 
-* Read [`FINDINGS.md`](https://www.google.com/search?q=FINDINGS.md) for details on how this was reverse-engineered.
+* Read [`FINDINGS.md`](FINDINGS.md) for details on how this was reverse-engineered.
 * Not affiliated with Mojang, Nintendo, or Other Ocean.
