@@ -170,11 +170,20 @@ u32 udsAnswer(u32 *saved, u32 site) {
             if ((answerMask & 0x0002u) && gAppLen)
                 wrote = buildBeaconReply((u8 *)outVA, reqSize, reqSize, gApp, gAppLen);
             if (wrote) { answeredFull++; }
-            else if (answerMask & 0x0001u) {            // empty (no host / would not fit)
+            else {
+                /* No list to show (the bridge was unreachable, so no BEACON ever arrived, or it
+                 * would not fit): answer an EMPTY scan. This used to fall through to the real nwm
+                 * when bit 0 of answerMask was clear -- which it is by default -- and the real nwm
+                 * had never been initialised because we answered InitializeWithVersion ourselves.
+                 * That is the data abort at 0x1378 inside nwm that two users hit the moment they
+                 * opened Multiplayer with a wrong bridge address in tonic.cfg. Once init has been
+                 * bypassed, no UDS command may ever reach nwm; an empty list is the right answer. */
                 volatile u32 *ob = (volatile u32 *)outVA;
                 ob[0] = reqSize; ob[1] = 12; ob[2] = 0;
                 answeredEmpty++;
-            } else return 0;
+                if (answeredEmpty == 1 && !gAppLen)
+                    logLine("tonic: scan answered EMPTY - no beacon from the bridge yet (is tonic.cfg right and the server up?)\n");
+            }
             cmd[0] = 0x000F0042u;                       // reply: cmd 0x0F, 1 normal, 2 translate
             cmd[1] = 0;                                 // ResultSuccess
             cmd[2] = desc;                              // echo mapped-buffer descriptor
